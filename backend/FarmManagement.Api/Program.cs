@@ -73,6 +73,7 @@ app.UseCors("frontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "farm-management-api" })).AllowAnonymous();
 
 using (var scope = app.Services.CreateScope())
 {
@@ -80,3 +81,4 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
