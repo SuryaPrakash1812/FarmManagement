@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: farm-management-api
+    env: docker
+    rootDir: backend/FarmManagement.Api
+    plan: free
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: DatabaseProvider
+        value: PostgreSQL
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: Jwt__Secret
+        sync: false
+      - key: Jwt__Issuer
+        value: FarmManagement
+      - key: Jwt__Audience
+        value: FarmManagement.Web
+      - key: Cors__AllowedOrigins__0
+        sync: false

@@ -1,0 +1,9 @@
+backend/FarmManagement.Api/bin/
+backend/FarmManagement.Api/obj/
+backend/FarmManagement.Api/*.db
+backend/FarmManagement.Api/uploads/*
+!backend/FarmManagement.Api/uploads/.gitkeep
+frontend/node_modules/
+frontend/dist/
+.env
+.env.*.local
