@@ -21,11 +21,12 @@ builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 builder.Services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IFileStorageService, LocalFileStorageService>();
+builder.Services.AddHostedService<DatabaseInitializerHostedService>();
 
 var provider = builder.Configuration["DatabaseProvider"] ?? "Sqlite";
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "Data Source=farm-management.db";
 if (provider.Equals("Postgres", StringComparison.OrdinalIgnoreCase) || provider.Equals("PostgreSQL", StringComparison.OrdinalIgnoreCase))
-    builder.Services.AddDbContext<FarmDbContext>(options => options.UseNpgsql(connectionString));
+    builder.Services.AddDbContext<FarmDbContext>(options => options.UseNpgsql(connectionString, npgsql => npgsql.CommandTimeout(180)));
 else
     builder.Services.AddDbContext<FarmDbContext>(options => options.UseSqlite(connectionString));
 
@@ -75,10 +76,7 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "farm-management-api" })).AllowAnonymous();
 
-using (var scope = app.Services.CreateScope())
-{
-    await SeedData.InitializeAsync(scope.ServiceProvider.GetRequiredService<FarmDbContext>());
-}
 
 app.Run();
+
 
