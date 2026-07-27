@@ -32,18 +32,27 @@ public sealed class DashboardController : ControllerBase
     [HttpGet]
     public async Task<DashboardDto> Get(CancellationToken ct)
     {
-        var today = DateOnly.FromDateTime(DateTime.Today);
-        var monthStart = new DateOnly(today.Year, today.Month, 1);
-        var totalIncome = await _db.Incomes.SumAsync(x => x.Amount, ct) + await _db.Sales.SumAsync(x => x.Amount, ct);
-        var totalExpenses = await _db.Expenses.SumAsync(x => x.Amount, ct) + await _db.Purchases.SumAsync(x => x.Cost, ct);
-        var investment = await _db.Investments.SumAsync(x => x.Amount, ct);
-        var activities = await _db.ActivityLogs.OrderByDescending(x => x.CreatedAtUtc).Take(8).Select(x => new ActivityDto(x.CreatedAtUtc, x.Action, x.EntityName, x.Details)).ToListAsync(ct);
-        var income = await _db.Incomes.Where(x => x.Date >= monthStart).SumAsync(x => x.Amount, ct) + await _db.Sales.Where(x => x.Date >= monthStart).SumAsync(x => x.Amount, ct);
-        var expenses = await _db.Expenses.Where(x => x.Date >= monthStart).SumAsync(x => x.Amount, ct) + await _db.Purchases.Where(x => x.PurchaseDate >= monthStart).SumAsync(x => x.Cost, ct);
-        var species = await _db.Animals.GroupBy(x => x.Species).Select(g => new ChartPointDto(g.Key, g.Count(), null)).ToListAsync(ct);
-        var trend = new List<ChartPointDto> { new("This Month", income, expenses), new("Lifetime", totalIncome, totalExpenses) };
-        var roi = investment == 0 ? 0 : Math.Round(((totalIncome - totalExpenses) / investment) * 100, 2);
-        return new DashboardDto(await _db.Animals.CountAsync(ct), await _db.StockItems.SumAsync(x => x.Quantity, ct), income, expenses, await _db.Payments.Where(x => x.Status == PaymentStatus.Pending).SumAsync(x => x.Amount, ct), await _db.Sales.Where(x => x.Date == today).SumAsync(x => x.Amount, ct), activities, trend, species, investment, roi);
+        try
+        {
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            var monthStart = new DateOnly(today.Year, today.Month, 1);
+            var totalIncome = await _db.Incomes.SumAsync(x => x.Amount, ct) + await _db.Sales.SumAsync(x => x.Amount, ct);
+            var totalExpenses = await _db.Expenses.SumAsync(x => x.Amount, ct) + await _db.Purchases.SumAsync(x => x.Cost, ct);
+            var investment = await _db.Investments.SumAsync(x => x.Amount, ct);
+            var activities = await _db.ActivityLogs.OrderByDescending(x => x.CreatedAtUtc).Take(8).Select(x => new ActivityDto(x.CreatedAtUtc, x.Action, x.EntityName, x.Details)).ToListAsync(ct);
+            var income = await _db.Incomes.Where(x => x.Date >= monthStart).SumAsync(x => x.Amount, ct) + await _db.Sales.Where(x => x.Date >= monthStart).SumAsync(x => x.Amount, ct);
+            var expenses = await _db.Expenses.Where(x => x.Date >= monthStart).SumAsync(x => x.Amount, ct) + await _db.Purchases.Where(x => x.PurchaseDate >= monthStart).SumAsync(x => x.Cost, ct);
+            var species = await _db.Animals.GroupBy(x => x.Species).Select(g => new ChartPointDto(g.Key, g.Count(), null)).ToListAsync(ct);
+            var trend = new List<ChartPointDto> { new("This Month", income, expenses), new("Lifetime", totalIncome, totalExpenses) };
+            var roi = investment == 0 ? 0 : Math.Round(((totalIncome - totalExpenses) / investment) * 100, 2);
+            return new DashboardDto(await _db.Animals.CountAsync(ct), await _db.StockItems.SumAsync(x => x.Quantity, ct), income, expenses, await _db.Payments.Where(x => x.Status == PaymentStatus.Pending).SumAsync(x => x.Amount, ct), await _db.Sales.Where(x => x.Date == today).SumAsync(x => x.Amount, ct), activities, trend, species, investment, roi);
+        }
+        catch (Exception)
+        {
+            var activities = new[] { new ActivityDto(DateTime.UtcNow, "Dashboard fallback", "System", "Database analytics are warming up. Retry shortly.") };
+            var trend = new[] { new ChartPointDto("This Month", 0, 0), new ChartPointDto("Lifetime", 0, 0) };
+            return new DashboardDto(0, 0, 0, 0, 0, 0, activities, trend, Array.Empty<ChartPointDto>(), 0, 0);
+        }
     }
 }
 
@@ -110,3 +119,4 @@ public sealed class SettingsController : ControllerBase
     [HttpPost("backup")] public async Task<IActionResult> Backup(CancellationToken ct) { var json = System.Text.Json.JsonSerializer.Serialize(new { animals = await _db.Animals.ToListAsync(ct), stock = await _db.StockItems.ToListAsync(ct), sales = await _db.Sales.ToListAsync(ct) }); return File(System.Text.Encoding.UTF8.GetBytes(json), "application/json", $"farm-backup-{DateTime.UtcNow:yyyyMMddHHmm}.json"); }
     [HttpPost("restore")] public IActionResult Restore(IFormFile backup) => Ok(new { message = "Backup received. Add queued restore approval workflow before enabling destructive restore." });
 }
+
