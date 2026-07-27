@@ -4,6 +4,7 @@ using System.Text;
 using FarmManagement.Api.Data;
 using FarmManagement.Api.Domain;
 using FarmManagement.Api.Dtos;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -60,7 +61,8 @@ public sealed class LocalFileStorageService : IFileStorageService
 {
     private readonly IWebHostEnvironment _env;
     private readonly IConfiguration _config;
-    public LocalFileStorageService(IWebHostEnvironment env, IConfiguration config) { _env = env; _config = config; }
+    private readonly IHttpContextAccessor _http;
+    public LocalFileStorageService(IWebHostEnvironment env, IConfiguration config, IHttpContextAccessor http) { _env = env; _config = config; _http = http; }
     public async Task<string> SaveAsync(IFormFile file, string folder, CancellationToken ct)
     {
         if (file.Length == 0) throw new InvalidOperationException("Uploaded file is empty.");
@@ -73,6 +75,11 @@ public sealed class LocalFileStorageService : IFileStorageService
         var path = Path.Combine(root, name);
         await using var stream = File.Create(path);
         await file.CopyToAsync(stream, ct);
-        return $"/uploads/{folder}/{name}";
+        var relativePath = $"/uploads/{folder}/{name}";
+        var request = _http.HttpContext?.Request;
+        var explicitBase = _config["Storage:PublicBaseUrl"];
+        if (!string.IsNullOrWhiteSpace(explicitBase)) return $"{explicitBase.TrimEnd('/')}{relativePath}";
+        if (request is not null) return $"{request.Scheme}://{request.Host}{relativePath}";
+        return relativePath;
     }
 }
