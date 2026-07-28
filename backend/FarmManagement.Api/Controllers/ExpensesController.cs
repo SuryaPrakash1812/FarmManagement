@@ -85,7 +85,7 @@ public sealed class ExpensesController : ControllerBase
         var creditors = balances.Where(b => b.NetBalance > 0.01m).OrderByDescending(b => b.NetBalance).Select(b => (b.UserId, b.FullName, Amount: b.NetBalance)).ToList();
         var debtors = balances.Where(b => b.NetBalance < -0.01m).OrderBy(b => b.NetBalance).Select(b => (b.UserId, b.FullName, Amount: -b.NetBalance)).ToList();
         var suggestions = new List<SettleSuggestionDto>();
-        var ci = 0, di = 0;
+        int ci = 0, di = 0;
         while (ci < creditors.Count && di < debtors.Count)
         {
             var credit = creditors[ci];
