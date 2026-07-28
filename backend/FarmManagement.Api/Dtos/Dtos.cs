@@ -19,7 +19,13 @@ public sealed record UpsertSaleRequest(Guid? CustomerId, string ProductType, str
 public sealed record PurchaseDto(Guid Id, string? VendorName, string ItemName, decimal Quantity, decimal Cost, string PaymentMethod, string? InvoiceUrl, DateOnly PurchaseDate);
 public sealed record UpsertPurchaseRequest(Guid? VendorId, string ItemName, decimal Quantity, decimal Cost, string PaymentMethod, DateOnly PurchaseDate);
 public sealed record MoneyRecordDto(Guid Id, string CategoryOrSource, decimal Amount, string? PaymentMethod, DateOnly Date, string? Notes);
-public sealed record UpsertExpenseRequest(string Category, decimal Amount, string PaymentMethod, DateOnly Date, string? Notes);
+public sealed record ExpenseSplitDto(Guid UserId, string UserName, decimal ShareAmount);
+public sealed record ExpenseDto(Guid Id, string Category, decimal Amount, string PaymentMethod, DateOnly Date, string? Notes, Guid? PaidByUserId, string? PaidByName, bool IsRecurring, string? RecurrenceInterval, IReadOnlyList<ExpenseSplitDto> Splits);
+public sealed record UpsertExpenseRequest(string Category, decimal Amount, string PaymentMethod, DateOnly Date, string? Notes, Guid? PaidByUserId, bool IsRecurring, string? RecurrenceInterval, List<Guid>? SplitAmongUserIds);
+public sealed record ExpenseBalanceDto(Guid UserId, string FullName, decimal Paid, decimal Share, decimal NetBalance);
+public sealed record SettleSuggestionDto(Guid FromUserId, string FromName, Guid ToUserId, string ToName, decimal Amount);
+public sealed record SettlementDto(Guid Id, Guid FromUserId, string FromName, Guid ToUserId, string ToName, decimal Amount, DateOnly Date, string? Notes);
+public sealed record RecordSettlementRequest(Guid FromUserId, Guid ToUserId, decimal Amount, DateOnly Date, string? Notes);
 public sealed record UpsertIncomeRequest(string Source, decimal Amount, DateOnly Date, string? Notes);
 public sealed record InvestmentDto(Guid Id, string InvestmentType, decimal Amount, DateOnly Date, string? Description);
 public sealed record UpsertInvestmentRequest(string InvestmentType, decimal Amount, DateOnly Date, string? Description);

@@ -11,9 +11,10 @@ public static class SeedData
         await db.Database.MigrateAsync(ct);
         var hasher = new PasswordHasher<AppUser>();
 
-        if (!await db.Users.AnyAsync(ct))
+        AppUser? admin = await db.Users.FirstOrDefaultAsync(u => u.Email == "admin@farm.local", ct);
+        if (admin is null)
         {
-            var admin = new AppUser { FullName = "Farm Admin", Email = "admin@farm.local", Role = UserRole.Admin };
+            admin = new AppUser { FullName = "Farm Admin", Email = "admin@farm.local", Role = UserRole.Admin };
             admin.PasswordHash = hasher.HashPassword(admin, "Admin@12345");
             db.Users.Add(admin);
         }
@@ -36,7 +37,7 @@ public static class SeedData
 
         if (!await db.Customers.AnyAsync(ct)) db.Customers.Add(new Customer { Name = "Daily Dairy Buyer", Phone = "+91-9000000000" });
         if (!await db.Sales.AnyAsync(ct)) db.Sales.Add(new Sale { ProductType = "Milk", ProductName = "Cow Milk", Quantity = 38, Amount = 2280, Gst = 0, Discount = 0, PaymentStatus = PaymentStatus.Paid, InvoiceNumber = "INV-0001", Date = DateOnly.FromDateTime(DateTime.Today) });
-        if (!await db.Expenses.AnyAsync(ct)) db.Expenses.Add(new Expense { Category = "Feed", Amount = 4200, PaymentMethod = "UPI", Date = DateOnly.FromDateTime(DateTime.Today.AddDays(-12)), Notes = "Weekly feed purchase" });
+        if (!await db.Expenses.AnyAsync(ct)) db.Expenses.Add(new Expense { Category = "Feed", Amount = 4200, PaymentMethod = "UPI", Date = DateOnly.FromDateTime(DateTime.Today.AddDays(-12)), Notes = "Weekly feed purchase", PaidByUserId = admin.Id });
         if (!await db.Incomes.AnyAsync(ct)) db.Incomes.Add(new Income { Source = "Milk", Amount = 2280, Date = DateOnly.FromDateTime(DateTime.Today) });
         if (!await db.Payments.AnyAsync(ct)) db.Payments.Add(new Payment { Direction = PaymentDirection.Incoming, Amount = 5500, Status = PaymentStatus.Pending, Method = "Bank Transfer", DueDate = DateOnly.FromDateTime(DateTime.Today.AddDays(3)), PartyName = "Retail milk customer" });
         if (!await db.Investments.AnyAsync(ct)) db.Investments.Add(new Investment { InvestmentType = "Animal Purchase", Amount = 64000, Date = DateOnly.FromDateTime(DateTime.Today.AddYears(-1)), Description = "Initial livestock investment" });

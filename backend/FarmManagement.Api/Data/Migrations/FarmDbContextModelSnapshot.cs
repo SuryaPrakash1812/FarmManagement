@@ -408,11 +408,20 @@ namespace FarmManagement.Api.Data.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsRecurring")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Notes")
                         .HasColumnType("text");
 
+                    b.Property<Guid?>("PaidByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("PaymentMethod")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("RecurrenceInterval")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("UpdatedAtUtc")
@@ -420,7 +429,81 @@ namespace FarmManagement.Api.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("PaidByUserId");
+
                     b.ToTable("Expenses");
+                });
+
+            modelBuilder.Entity("FarmManagement.Api.Domain.ExpenseSplit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ExpenseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("ShareAmount")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpenseId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("ExpenseSplits");
+                });
+
+            modelBuilder.Entity("FarmManagement.Api.Domain.Settlement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime>("CreatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("FromUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Notes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ToUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("UpdatedAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FromUserId");
+
+                    b.HasIndex("ToUserId");
+
+                    b.ToTable("Settlements");
                 });
 
             modelBuilder.Entity("FarmManagement.Api.Domain.FarmSetting", b =>
@@ -886,6 +969,54 @@ namespace FarmManagement.Api.Data.Migrations
                     b.Navigation("MaleAnimal");
                 });
 
+            modelBuilder.Entity("FarmManagement.Api.Domain.Expense", b =>
+                {
+                    b.HasOne("FarmManagement.Api.Domain.AppUser", "PaidByUser")
+                        .WithMany()
+                        .HasForeignKey("PaidByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("PaidByUser");
+                });
+
+            modelBuilder.Entity("FarmManagement.Api.Domain.ExpenseSplit", b =>
+                {
+                    b.HasOne("FarmManagement.Api.Domain.Expense", "Expense")
+                        .WithMany("Splits")
+                        .HasForeignKey("ExpenseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("FarmManagement.Api.Domain.AppUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Expense");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("FarmManagement.Api.Domain.Settlement", b =>
+                {
+                    b.HasOne("FarmManagement.Api.Domain.AppUser", "FromUser")
+                        .WithMany()
+                        .HasForeignKey("FromUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("FarmManagement.Api.Domain.AppUser", "ToUser")
+                        .WithMany()
+                        .HasForeignKey("ToUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("FromUser");
+
+                    b.Navigation("ToUser");
+                });
+
             modelBuilder.Entity("FarmManagement.Api.Domain.HealthRecord", b =>
                 {
                     b.HasOne("FarmManagement.Api.Domain.Animal", "Animal")
@@ -929,6 +1060,11 @@ namespace FarmManagement.Api.Data.Migrations
             modelBuilder.Entity("FarmManagement.Api.Domain.Animal", b =>
                 {
                     b.Navigation("HealthRecords");
+                });
+
+            modelBuilder.Entity("FarmManagement.Api.Domain.Expense", b =>
+                {
+                    b.Navigation("Splits");
                 });
 
             modelBuilder.Entity("FarmManagement.Api.Domain.Employee", b =>

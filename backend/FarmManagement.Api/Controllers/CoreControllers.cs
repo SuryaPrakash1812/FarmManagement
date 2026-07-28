@@ -2,6 +2,7 @@ using ClosedXML.Excel;
 using FarmManagement.Api.Data;
 using FarmManagement.Api.Domain;
 using FarmManagement.Api.Dtos;
+using FarmManagement.Api.Mapping;
 using FarmManagement.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,9 +15,11 @@ namespace FarmManagement.Api.Controllers;
 public sealed class AuthController : ControllerBase
 {
     private readonly IAuthService _auth;
-    public AuthController(IAuthService auth) => _auth = auth;
+    private readonly FarmDbContext _db;
+    public AuthController(IAuthService auth, FarmDbContext db) { _auth = auth; _db = db; }
     [HttpPost("login")] [AllowAnonymous] public Task<AuthResponse> Login(LoginRequest request, CancellationToken ct) => _auth.LoginAsync(request, ct);
     [HttpPost("users")] [Authorize(Roles = "Admin")] public Task<UserDto> CreateUser(CreateUserRequest request, CancellationToken ct) => _auth.CreateUserAsync(request, ct);
+    [HttpGet("users")] [Authorize] public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers(CancellationToken ct) => Ok((await _db.Users.Where(u => u.IsActive).OrderBy(u => u.FullName).ToListAsync(ct)).Select(EntityMapper.ToDto));
     [HttpPost("logout")] [Authorize] public IActionResult Logout() => NoContent();
     [HttpPost("forgot-password")] [AllowAnonymous] public IActionResult ForgotPassword(ForgotPasswordRequest request) => Ok(new { message = "If the email exists, a reset link will be sent by the configured email provider." });
     [HttpPost("change-password")] [Authorize] public IActionResult ChangePassword(ChangePasswordRequest request) => Ok(new { message = "Password change endpoint scaffolded. Add email/OTP policy before production." });

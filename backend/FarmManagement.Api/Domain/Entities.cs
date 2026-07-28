@@ -134,6 +134,31 @@ public sealed class Expense : BaseEntity
     public string PaymentMethod { get; set; } = "Cash";
     public DateOnly Date { get; set; }
     public string? Notes { get; set; }
+    public Guid? PaidByUserId { get; set; }
+    public AppUser? PaidByUser { get; set; }
+    public bool IsRecurring { get; set; }
+    public string? RecurrenceInterval { get; set; }
+    public ICollection<ExpenseSplit> Splits { get; set; } = new List<ExpenseSplit>();
+}
+
+public sealed class ExpenseSplit : BaseEntity
+{
+    public Guid ExpenseId { get; set; }
+    public Expense? Expense { get; set; }
+    public Guid UserId { get; set; }
+    public AppUser? User { get; set; }
+    public decimal ShareAmount { get; set; }
+}
+
+public sealed class Settlement : BaseEntity
+{
+    public Guid FromUserId { get; set; }
+    public AppUser? FromUser { get; set; }
+    public Guid ToUserId { get; set; }
+    public AppUser? ToUser { get; set; }
+    public decimal Amount { get; set; }
+    public DateOnly Date { get; set; }
+    public string? Notes { get; set; }
 }
 
 public sealed class Payment : BaseEntity

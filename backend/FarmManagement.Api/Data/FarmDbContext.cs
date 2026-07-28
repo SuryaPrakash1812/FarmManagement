@@ -17,6 +17,8 @@ public sealed class FarmDbContext : DbContext
     public DbSet<Purchase> Purchases => Set<Purchase>();
     public DbSet<Investment> Investments => Set<Investment>();
     public DbSet<Expense> Expenses => Set<Expense>();
+    public DbSet<ExpenseSplit> ExpenseSplits => Set<ExpenseSplit>();
+    public DbSet<Settlement> Settlements => Set<Settlement>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<Income> Incomes => Set<Income>();
     public DbSet<HealthRecord> HealthRecords => Set<HealthRecord>();
@@ -35,6 +37,11 @@ public sealed class FarmDbContext : DbContext
         modelBuilder.Entity<Animal>().HasOne(x => x.Mother).WithMany().HasForeignKey(x => x.MotherId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<BreedingRecord>().HasOne(x => x.MaleAnimal).WithMany().HasForeignKey(x => x.MaleAnimalId).OnDelete(DeleteBehavior.Restrict);
         modelBuilder.Entity<BreedingRecord>().HasOne(x => x.FemaleAnimal).WithMany().HasForeignKey(x => x.FemaleAnimalId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Expense>().HasOne(x => x.PaidByUser).WithMany().HasForeignKey(x => x.PaidByUserId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<ExpenseSplit>().HasOne(x => x.Expense).WithMany(x => x.Splits).HasForeignKey(x => x.ExpenseId).OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<ExpenseSplit>().HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Settlement>().HasOne(x => x.FromUser).WithMany().HasForeignKey(x => x.FromUserId).OnDelete(DeleteBehavior.Restrict);
+        modelBuilder.Entity<Settlement>().HasOne(x => x.ToUser).WithMany().HasForeignKey(x => x.ToUserId).OnDelete(DeleteBehavior.Restrict);
 
         foreach (var entityType in modelBuilder.Model.GetEntityTypes().Where(t => typeof(BaseEntity).IsAssignableFrom(t.ClrType)))
         {

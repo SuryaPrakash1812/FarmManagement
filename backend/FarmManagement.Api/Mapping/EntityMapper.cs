@@ -1,3 +1,4 @@
+using System.Linq;
 using FarmManagement.Api.Domain;
 using FarmManagement.Api.Dtos;
 
@@ -26,9 +27,9 @@ public static class EntityMapper
     public static Investment ToEntity(UpsertInvestmentRequest x) { var e = new Investment(); Apply(x, e); return e; }
     public static void Apply(UpsertInvestmentRequest x, Investment e) { e.InvestmentType = x.InvestmentType; e.Amount = x.Amount; e.Date = x.Date; e.Description = x.Description; }
 
-    public static MoneyRecordDto ToDto(Expense x) => new(x.Id, x.Category, x.Amount, x.PaymentMethod, x.Date, x.Notes);
+    public static ExpenseDto ToDto(Expense x) => new(x.Id, x.Category, x.Amount, x.PaymentMethod, x.Date, x.Notes, x.PaidByUserId, x.PaidByUser?.FullName, x.IsRecurring, x.RecurrenceInterval, (x.Splits ?? new List<ExpenseSplit>()).Select(s => new ExpenseSplitDto(s.UserId, s.User?.FullName ?? string.Empty, s.ShareAmount)).ToList());
     public static Expense ToEntity(UpsertExpenseRequest x) { var e = new Expense(); Apply(x, e); return e; }
-    public static void Apply(UpsertExpenseRequest x, Expense e) { e.Category = x.Category; e.Amount = x.Amount; e.PaymentMethod = x.PaymentMethod; e.Date = x.Date; e.Notes = x.Notes; }
+    public static void Apply(UpsertExpenseRequest x, Expense e) { e.Category = x.Category; e.Amount = x.Amount; e.PaymentMethod = x.PaymentMethod; e.Date = x.Date; e.Notes = x.Notes; e.PaidByUserId = x.PaidByUserId; e.IsRecurring = x.IsRecurring; e.RecurrenceInterval = x.RecurrenceInterval; }
 
     public static MoneyRecordDto ToDto(Income x) => new(x.Id, x.Source, x.Amount, null, x.Date, x.Notes);
     public static Income ToEntity(UpsertIncomeRequest x) { var e = new Income(); Apply(x, e); return e; }
