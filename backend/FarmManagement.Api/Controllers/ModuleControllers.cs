@@ -4,6 +4,7 @@ using FarmManagement.Api.Dtos;
 using FarmManagement.Api.Mapping;
 using FarmManagement.Api.Repositories;
 using FarmManagement.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -48,4 +49,42 @@ public sealed class IncomesController : CrudController<Income, MoneyRecordDto, U
 public sealed class PaymentsController : CrudController<Payment, PaymentDto, UpsertPaymentRequest> { public PaymentsController(IRepository<Payment> r) : base(r, EntityMapper.ToDto, EntityMapper.ToEntity, EntityMapper.Apply) { } protected override IQueryable<Payment> ApplySearch(IQueryable<Payment> q, string? s) => string.IsNullOrWhiteSpace(s) ? q : q.Where(x => x.Method.Contains(s) || (x.PartyName != null && x.PartyName.Contains(s))); }
 public sealed class HealthController : CrudController<HealthRecord, HealthRecordDto, UpsertHealthRecordRequest> { public HealthController(IRepository<HealthRecord> r) : base(r, EntityMapper.ToDto, EntityMapper.ToEntity, EntityMapper.Apply) { } protected override IQueryable<HealthRecord> ApplySearch(IQueryable<HealthRecord> q, string? s) => string.IsNullOrWhiteSpace(s) ? q.Include(x => x.Animal) : q.Include(x => x.Animal).Where(x => x.RecordType.Contains(s) || (x.Medicines != null && x.Medicines.Contains(s))); [HttpGet("reminders")] public async Task<ActionResult<IEnumerable<HealthRecordDto>>> Reminders(CancellationToken ct) => Ok((await Repository.Query().Include(x => x.Animal).Where(x => x.NextDueDate != null && x.NextDueDate <= DateOnly.FromDateTime(DateTime.Today.AddDays(14))).ToListAsync(ct)).Select(EntityMapper.ToDto)); }
 public sealed class BreedingController : CrudController<BreedingRecord, BreedingRecordDto, UpsertBreedingRecordRequest> { public BreedingController(IRepository<BreedingRecord> r) : base(r, EntityMapper.ToDto, EntityMapper.ToEntity, EntityMapper.Apply) { } }
+[ApiController]
+[Authorize]
+[Route("api/attendance")]
+public sealed class AttendanceController : ControllerBase
+{
+    private readonly FarmDbContext _db;
+    public AttendanceController(FarmDbContext db) => _db = db;
+
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<AttendanceDto>>> Get([FromQuery] DateOnly? date, [FromQuery] Guid? employeeId, CancellationToken ct)
+    {
+        var query = _db.AttendanceRecords.Include(x => x.Employee).AsQueryable();
+        if (date.HasValue) query = query.Where(x => x.Date == date.Value);
+        if (employeeId.HasValue) query = query.Where(x => x.EmployeeId == employeeId.Value);
+        var records = await query.OrderByDescending(x => x.Date).ThenBy(x => x.Employee!.FullName).ToListAsync(ct);
+        return Ok(records.Select(ToDto));
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<AttendanceDto>> Upsert(UpsertAttendanceRequest request, CancellationToken ct)
+    {
+        var employee = await _db.Employees.FirstOrDefaultAsync(x => x.Id == request.EmployeeId, ct);
+        if (employee is null) return BadRequest(new { message = "Employee not found." });
+        var record = await _db.AttendanceRecords.FirstOrDefaultAsync(x => x.EmployeeId == request.EmployeeId && x.Date == request.Date, ct);
+        if (record is null)
+        {
+            record = new AttendanceRecord { EmployeeId = request.EmployeeId, Date = request.Date };
+            _db.AttendanceRecords.Add(record);
+        }
+        record.IsPresent = request.IsPresent;
+        record.Notes = request.Notes;
+        await _db.SaveChangesAsync(ct);
+        record.Employee = employee;
+        return Ok(ToDto(record));
+    }
+
+    private static AttendanceDto ToDto(AttendanceRecord x) => new(x.Id, x.EmployeeId, x.Employee?.FullName ?? string.Empty, x.Date, x.IsPresent, x.Notes);
+}
 public sealed class EmployeesController : CrudController<Employee, EmployeeDto, UpsertEmployeeRequest> { public EmployeesController(IRepository<Employee> r) : base(r, EntityMapper.ToDto, EntityMapper.ToEntity, EntityMapper.Apply) { } protected override IQueryable<Employee> ApplySearch(IQueryable<Employee> q, string? s) => string.IsNullOrWhiteSpace(s) ? q : q.Where(x => x.FullName.Contains(s) || x.Role.Contains(s)); }
