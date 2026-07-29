@@ -1,30 +1,34 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { Alert, AppBar, Box, Button, CssBaseline, Dialog, DialogActions, DialogContent, DialogTitle, Drawer, IconButton, Snackbar, Toolbar, Typography } from '@mui/material';
-import { Add, CameraAlt, CloudUpload, Dashboard, DarkMode, Delete, Edit, Inventory, Menu, Payments, Pets, ReceiptLong, Search, Settings, Visibility, WbSunny } from '@mui/icons-material';
+import { Add, CameraAlt, CloudUpload, Dashboard, DarkMode, Delete, Edit, Group, Inventory, Menu, Payments, Pets, ReceiptLong, Search, Settings, Visibility, WbSunny } from '@mui/icons-material';
 import { Bar, BarChart, CartesianGrid, Legend, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from 'recharts';
 import { api, login } from './api/client.js';
 
 const modules = [
-  ['dashboard','Dashboard',Dashboard],['animals','Animals',Pets],['stock','Stock',Inventory],['sales','Sales',ReceiptLong],['expenses','Expenses',Payments],['income','Income',Payments],['payments','Payments',Payments],['health','Health',Pets],['breeding','Breeding',Pets],['employees','Employees',Settings],['reports','Reports',ReceiptLong],['settings','Settings',Settings]
+  ['dashboard','Dashboard',Dashboard],['animals','Animals',Pets],['stock','Stock',Inventory],['sales','Sales',ReceiptLong],['expenses','Expenses',Payments],['income','Income',Payments],['payments','Payments',Payments],['health','Health',Pets],['breeding','Breeding',Pets],['employees','Employees',Settings],['team','Team',Group,true],['reports','Reports',ReceiptLong],['settings','Settings',Settings]
 ];
+const roleNames=['Admin','Manager','Worker'];
 const colors=['#2563eb','#10b981','#f59e0b','#ef4444','#8b5cf6','#14b8a6'];
 
 export default function App(){
   const [page,setPage]=useState('dashboard'); const [drawer,setDrawer]=useState(false); const [dark,setDark]=useState(false); const [toast,setToast]=useState('');
   const [authed,setAuthed]=useState(!!localStorage.getItem('farm_token'));
+  const [currentUser,setCurrentUser]=useState(()=>{try{return JSON.parse(localStorage.getItem('farm_user')||'null')}catch{return null}});
   const theme=useMemo(()=>createTheme({palette:{mode:dark?'dark':'light',primary:{main:'#2563eb'},success:{main:'#10b981'}},shape:{borderRadius:8}}),[dark]);
-  if(!authed) return <ThemeProvider theme={theme}><CssBaseline/><LoginPage onLogin={()=>setAuthed(true)}/></ThemeProvider>;
-  const Nav= <nav>{modules.map(([key,label,Icon])=><button key={key} className={`nav-btn ${page===key?'active':''}`} onClick={()=>{setPage(key);setDrawer(false)}}><Icon fontSize="small"/>{label}</button>)}</nav>;
-  function logout(){localStorage.removeItem('farm_token');setAuthed(false)}
-  return <ThemeProvider theme={theme}><CssBaseline/><div className={dark?'dark':''}><div className="app-shell"><aside className="sidebar"> <div className="brand">Farm Management</div>{Nav}</aside><Drawer open={drawer} onClose={()=>setDrawer(false)}><Box sx={{width:280,background:'#0f172a',height:'100%',color:'white',p:2}}><div className="brand">Farm Management</div>{Nav}</Box></Drawer><main className="content"><AppBar position="sticky" color="inherit" elevation={0}><Toolbar><IconButton className="mobile-menu" onClick={()=>setDrawer(true)}><Menu/></IconButton><Typography variant="h6" sx={{flex:1,textTransform:'capitalize'}}>{page}</Typography><IconButton onClick={()=>setDark(!dark)}>{dark?<WbSunny/>:<DarkMode/>}</IconButton><Button size="small" onClick={logout} sx={{ml:1}}>Logout</Button></Toolbar></AppBar><section className="main"><Page page={page} setToast={setToast}/></section></main></div><Snackbar open={!!toast} autoHideDuration={2800} onClose={()=>setToast('')}><Alert severity="success">{toast}</Alert></Snackbar></div></ThemeProvider>
+  if(!authed) return <ThemeProvider theme={theme}><CssBaseline/><LoginPage onLogin={(user)=>{setCurrentUser(user);setAuthed(true)}}/></ThemeProvider>;
+  const isAdmin=currentUser?.role===0;
+  const visibleModules=modules.filter(m=>!m[3]||isAdmin);
+  const Nav= <nav>{visibleModules.map(([key,label,Icon])=><button key={key} className={`nav-btn ${page===key?'active':''}`} onClick={()=>{setPage(key);setDrawer(false)}}><Icon fontSize="small"/>{label}</button>)}</nav>;
+  function logout(){localStorage.removeItem('farm_token');localStorage.removeItem('farm_user');setCurrentUser(null);setAuthed(false)}
+  return <ThemeProvider theme={theme}><CssBaseline/><div className={dark?'dark':''}><div className="app-shell"><aside className="sidebar"> <div className="brand">Farm Management</div>{Nav}</aside><Drawer open={drawer} onClose={()=>setDrawer(false)}><Box sx={{width:280,background:'#0f172a',height:'100%',color:'white',p:2}}><div className="brand">Farm Management</div>{Nav}</Box></Drawer><main className="content"><AppBar position="sticky" color="inherit" elevation={0}><Toolbar><IconButton className="mobile-menu" onClick={()=>setDrawer(true)}><Menu/></IconButton><Typography variant="h6" sx={{flex:1,textTransform:'capitalize'}}>{page}</Typography>{currentUser && <Typography variant="body2" className="muted" sx={{mr:1}}>{currentUser.fullName} · {roleNames[currentUser.role]||'User'}</Typography>}<IconButton onClick={()=>setDark(!dark)}>{dark?<WbSunny/>:<DarkMode/>}</IconButton><Button size="small" onClick={logout} sx={{ml:1}}>Logout</Button></Toolbar></AppBar><section className="main"><Page page={page} setToast={setToast} currentUser={currentUser}/></section></main></div><Snackbar open={!!toast} autoHideDuration={2800} onClose={()=>setToast('')}><Alert severity="success">{toast}</Alert></Snackbar></div></ThemeProvider>
 }
 
 function LoginPage({onLogin}){
   const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [error,setError]=useState(''); const [loading,setLoading]=useState(false);
   async function submit(e){
     e.preventDefault(); setError(''); setLoading(true);
-    try{ await login(email,password); onLogin(); }
+    try{ const data=await login(email,password); onLogin(data.user); }
     catch(err){ setError(err?.response?.status===401?'Invalid email or password.':'Could not reach the server. Please try again.'); }
     finally{ setLoading(false); }
   }
@@ -38,7 +42,7 @@ function LoginPage({onLogin}){
   </form></div>
 }
 
-function Page({page,setToast}){ if(page==='dashboard')return <DashboardPage/>; if(page==='animals')return <AnimalsPage setToast={setToast}/>; if(page==='expenses')return <ExpensesPage setToast={setToast}/>; if(page==='employees')return <EmployeesPage setToast={setToast}/>; if(page==='reports')return <ReportsPage/>; return <ModulePage name={page}/> }
+function Page({page,setToast,currentUser}){ if(page==='dashboard')return <DashboardPage/>; if(page==='animals')return <AnimalsPage setToast={setToast}/>; if(page==='expenses')return <ExpensesPage setToast={setToast}/>; if(page==='employees')return <EmployeesPage setToast={setToast}/>; if(page==='team')return <TeamPage setToast={setToast} currentUser={currentUser}/>; if(page==='reports')return <ReportsPage/>; return <ModulePage name={page}/> }
 
 function DashboardPage(){ const [data,setData]=useState(null); const [failed,setFailed]=useState(false); useEffect(()=>{api.get('/dashboard').then(r=>{setData(r.data);setFailed(false)}).catch(()=>{setData(sampleDashboard);setFailed(true)})},[]); const d=data||sampleDashboard; return <div className="grid">{failed && <Alert severity="warning">Couldn't load live data â€” showing sample values.</Alert>}<div className="grid stats">{[['Animals',d.totalAnimals],['Stock',d.totalStock],['Income',money(d.monthlyIncome)],['Expenses',money(d.monthlyExpenses)],['Pending',money(d.pendingPayments)],['Today Sales',money(d.todaysSales)]].map(x=><div className="card" key={x[0]}><div className="muted">{x[0]}</div><div className="metric">{x[1]}</div></div>)}</div><div className="grid two"><div className="card"><h3>Income vs Expenses</h3><ResponsiveContainer width="100%" height={280}><BarChart data={d.incomeVsExpenses}><CartesianGrid strokeDasharray="3 3"/><XAxis dataKey="label"/><YAxis/><Tooltip/><Legend/><Bar dataKey="value" name="Income" fill="#10b981"/><Bar dataKey="secondaryValue" name="Expenses" fill="#ef4444"/></BarChart></ResponsiveContainer></div><div className="card"><h3>Animals by Category</h3><ResponsiveContainer width="100%" height={280}><PieChart><Pie data={d.animalCountByCategory} dataKey="value" nameKey="label" outerRadius={92} label>{d.animalCountByCategory?.map((_,i)=><Cell key={i} fill={colors[i%colors.length]}/>)}</Pie><Tooltip/></PieChart></ResponsiveContainer></div></div><div className="card"><h3>Recent Activities</h3>{d.recentActivities?.map((a,i)=><p key={i}><b>{a.action}</b> <span className="muted">{a.entityName}</span></p>)}</div></div> }
 
@@ -199,6 +203,60 @@ function EmployeeDialog({open,employee,onClose,onSaved}){
   return <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm"><DialogTitle>{employee?'Edit Employee':'Add Employee'}</DialogTitle><DialogContent>{error&&<Alert severity="error" sx={{mb:2}}>{error}</Alert>}<div className="form-grid"><input className="input" name="fullName" placeholder="Full name" value={form.fullName} onChange={patch}/><select className="input" name="role" value={form.role} onChange={patch}>{employeeRoles.map(r=><option key={r} value={r}>{r}</option>)}</select><input className="input" name="salary" type="number" placeholder="Monthly salary" value={form.salary} onChange={patch}/><input className="input" name="phone" placeholder="Phone" value={form.phone||''} onChange={patch}/><input className="input" name="address" placeholder="Address" value={form.address||''} onChange={patch}/><textarea className="input" name="tasks" placeholder="Tasks and responsibilities" value={form.tasks||''} onChange={patch} rows="3"/></div></DialogContent><DialogActions><Button onClick={onClose}>Cancel</Button><Button variant="contained" onClick={save}>Save</Button></DialogActions></Dialog>
 }
 const sampleEmployees=[{id:'e1',fullName:'Ravi Kumar',role:'Worker',salary:18000,phone:'+91-9111111111',address:'Farm quarters',tasks:'Milking, feeding, cleaning'}];
+function TeamPage({setToast,currentUser}){
+  const [users,setUsers]=useState([]); const [open,setOpen]=useState(false); const isAdmin=currentUser?.role===0;
+  useEffect(()=>{load()},[]);
+  async function load(){try{const r=await api.get('/auth/users');setUsers(r.data||[])}catch{setUsers([])}}
+  return <div className="grid">
+    <div className="toolbar">
+      <h2 style={{margin:0}}>Team</h2>
+      {isAdmin && <Button startIcon={<Add/>} variant="contained" onClick={()=>setOpen(true)}>Add User</Button>}
+    </div>
+    <div className="card table-wrap"><table className="table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Phone</th></tr></thead><tbody>
+      {users.map(u=><tr key={u.id}>
+        <td data-label="Name"><b>{u.fullName}</b></td>
+        <td data-label="Email">{u.email}</td>
+        <td data-label="Role">{roleNames[u.role]||'User'}</td>
+        <td data-label="Phone">{u.phone||'-'}</td>
+      </tr>)}
+      {users.length===0 && <tr><td colSpan="4"><p className="muted">No team members found.</p></td></tr>}
+    </tbody></table></div>
+    {!isAdmin && <p className="muted">Only admins can add new team members.</p>}
+    <AddUserDialog open={open} onClose={()=>setOpen(false)} onSaved={()=>{setToast('User created');setOpen(false);load()}}/>
+  </div>
+}
+
+function AddUserDialog({open,onClose,onSaved}){
+  const blank={fullName:'',email:'',password:'',role:2,phone:''};
+  const [form,setForm]=useState(blank); const [error,setError]=useState('');
+  useEffect(()=>{if(open){setForm(blank);setError('')}},[open]);
+  function patch(e){setForm({...form,[e.target.name]:e.target.value})}
+  async function save(){
+    if(!form.fullName.trim()){setError('Full name is required.');return}
+    if(!form.email.trim()){setError('Email is required.');return}
+    if(!form.password || form.password.length<6){setError('Password must be at least 6 characters.');return}
+    try{ await api.post('/auth/users',{fullName:form.fullName,email:form.email,password:form.password,role:Number(form.role),phone:form.phone||null}); onSaved(); }
+    catch(err){ setError(err?.response?.data?.message || 'Could not create user. Email may already be in use.'); }
+  }
+  return <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <DialogTitle>Add User</DialogTitle>
+    <DialogContent>
+      {error && <Alert severity="error" sx={{mb:2}}>{error}</Alert>}
+      <div className="form-grid">
+        <input className="input" name="fullName" placeholder="Full name" value={form.fullName} onChange={patch}/>
+        <input className="input" name="email" type="email" placeholder="Email" value={form.email} onChange={patch}/>
+        <input className="input" name="password" type="password" placeholder="Password (min 6 chars)" value={form.password} onChange={patch}/>
+        <select className="input" name="role" value={form.role} onChange={patch}>
+          <option value={0}>Admin</option>
+          <option value={1}>Manager</option>
+          <option value={2}>Worker</option>
+        </select>
+        <input className="input" name="phone" placeholder="Phone (optional)" value={form.phone} onChange={patch}/>
+      </div>
+    </DialogContent>
+    <DialogActions><Button onClick={onClose}>Cancel</Button><Button variant="contained" onClick={save}>Create User</Button></DialogActions>
+  </Dialog>
+}
 function ModulePage({name}){return <div className="card"><div className="toolbar"><h2 style={{margin:0,textTransform:'capitalize'}}>{name}</h2><Button variant="contained" startIcon={<Add/>}>New</Button></div><p className="muted">REST API and database model are ready for this module. Connect table/form fields to the matching endpoint as workflows mature.</p></div>}
 function ReportsPage(){const reports=['animals','sales','expenses','income','inventory'];return <div className="grid">{reports.map(r=><div className="card" key={r}><h3 style={{textTransform:'capitalize'}}>{r} Report</h3><Button href={`${import.meta.env.VITE_API_URL||'http://localhost:5000/api'}/reports/${r}/csv`}>CSV</Button> <Button href={`${import.meta.env.VITE_API_URL||'http://localhost:5000/api'}/reports/${r}/excel`}>Excel</Button> <Button href={`${import.meta.env.VITE_API_URL||'http://localhost:5000/api'}/reports/${r}/pdf`}>PDF</Button></div>)}</div>}
 function money(v){return new Intl.NumberFormat('en-IN',{style:'currency',currency:'INR',maximumFractionDigits:0}).format(v||0)} function label(k){return k.replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase())}
