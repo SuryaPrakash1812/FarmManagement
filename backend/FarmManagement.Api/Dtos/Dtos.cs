@@ -37,6 +37,8 @@ public sealed record BreedingRecordDto(Guid Id, Guid MaleAnimalId, Guid FemaleAn
 public sealed record UpsertBreedingRecordRequest(Guid MaleAnimalId, Guid FemaleAnimalId, DateOnly MatingDate, DateOnly? ExpectedDeliveryDate, DateOnly? DeliveryDate, string? NewbornDetails);
 public sealed record EmployeeDto(Guid Id, string FullName, string Role, decimal Salary, string? Phone, string? Address, string? Tasks);
 public sealed record UpsertEmployeeRequest(string FullName, string Role, decimal Salary, string? Phone, string? Address, string? Tasks);
+public sealed record AttendanceDto(Guid Id, Guid EmployeeId, string EmployeeName, DateOnly Date, bool IsPresent, string? Notes);
+public sealed record UpsertAttendanceRequest(Guid EmployeeId, DateOnly Date, bool IsPresent, string? Notes);
 public sealed record FarmSettingDto(Guid Id, string FarmName, string Currency, string? LogoUrl, string? EmailFrom, bool EnableNotifications);
 public sealed record DashboardDto(decimal TotalAnimals, decimal TotalStock, decimal MonthlyIncome, decimal MonthlyExpenses, decimal PendingPayments, decimal TodaysSales, IEnumerable<ActivityDto> RecentActivities, IEnumerable<ChartPointDto> IncomeVsExpenses, IEnumerable<ChartPointDto> AnimalCountByCategory, decimal TotalInvestment, decimal Roi);
 public sealed record ActivityDto(DateTime CreatedAtUtc, string Action, string EntityName, string? Details);
