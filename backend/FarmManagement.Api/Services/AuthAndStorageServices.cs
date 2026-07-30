@@ -26,7 +26,8 @@ public sealed class AuthService : IAuthService
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct)
     {
-        var user = await _db.Users.FirstOrDefaultAsync(x => x.Email == request.Email && x.IsActive, ct) ?? throw new UnauthorizedAccessException("Invalid credentials.");
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.Email.ToLower() == normalizedEmail && x.IsActive, ct) ?? throw new UnauthorizedAccessException("Invalid credentials.");
         var result = _hasher.VerifyHashedPassword(user, user.PasswordHash, request.Password);
         if (result == PasswordVerificationResult.Failed) throw new UnauthorizedAccessException("Invalid credentials.");
         var expires = DateTime.UtcNow.AddMinutes(_config.GetValue<int>("Jwt:ExpiresMinutes", 120));
@@ -35,8 +36,9 @@ public sealed class AuthService : IAuthService
 
     public async Task<UserDto> CreateUserAsync(CreateUserRequest request, CancellationToken ct)
     {
-        if (await _db.Users.AnyAsync(x => x.Email == request.Email, ct)) throw new InvalidOperationException("Email already exists.");
-        var user = new AppUser { FullName = request.FullName, Email = request.Email, Role = request.Role, Phone = request.Phone };
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        if (await _db.Users.AnyAsync(x => x.Email.ToLower() == normalizedEmail, ct)) throw new InvalidOperationException("Email already exists.");
+        var user = new AppUser { FullName = request.FullName, Email = normalizedEmail, Role = request.Role, Phone = request.Phone };
         user.PasswordHash = _hasher.HashPassword(user, request.Password);
         _db.Users.Add(user);
         await _db.SaveChangesAsync(ct);
