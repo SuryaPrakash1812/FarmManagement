@@ -8,6 +8,7 @@ public sealed record ChangePasswordRequest(string CurrentPassword, string NewPas
 public sealed record ForgotPasswordRequest(string Email);
 public sealed record UserDto(Guid Id, string FullName, string Email, UserRole Role, string? Phone, string? AvatarUrl);
 public sealed record CreateUserRequest(string FullName, string Email, string Password, UserRole Role, string? Phone);
+public sealed record UpdateUserRequest(string FullName, UserRole Role, string? Phone);
 
 public sealed record AnimalDto(Guid Id, string AnimalCode, string TagNumber, string Name, string Species, string Breed, Gender Gender, DateOnly? DateOfBirth, DateOnly? PurchaseDate, decimal PurchasePrice, decimal CurrentValue, decimal? Weight, string HealthStatus, string? VaccinationDetails, string? MedicalHistory, bool IsPregnant, Guid? FatherId, Guid? MotherId, string? PhotoUrl, string? Notes, AnimalStatus Status);
 public sealed record UpsertAnimalRequest(string AnimalCode, string TagNumber, string Name, string Species, string Breed, Gender Gender, DateOnly? DateOfBirth, DateOnly? PurchaseDate, decimal PurchasePrice, decimal CurrentValue, decimal? Weight, string HealthStatus, string? VaccinationDetails, string? MedicalHistory, bool IsPregnant, Guid? FatherId, Guid? MotherId, string? Notes, AnimalStatus Status);

@@ -204,48 +204,56 @@ function EmployeeDialog({open,employee,onClose,onSaved}){
 }
 const sampleEmployees=[{id:'e1',fullName:'Ravi Kumar',role:'Worker',salary:18000,phone:'+91-9111111111',address:'Farm quarters',tasks:'Milking, feeding, cleaning'}];
 function TeamPage({setToast,currentUser}){
-  const [users,setUsers]=useState([]); const [open,setOpen]=useState(false); const isAdmin=currentUser?.role===0;
+  const [users,setUsers]=useState([]); const [open,setOpen]=useState(false); const [editing,setEditing]=useState(null); const [confirmDelete,setConfirmDelete]=useState(null);
+  const isAdmin=currentUser?.role===0;
   useEffect(()=>{load()},[]);
   async function load(){try{const r=await api.get('/auth/users');setUsers(r.data||[])}catch{setUsers([])}}
+  async function remove(u){try{await api.delete(`/auth/users/${u.id}`);setToast('User removed');load()}catch(err){setToast(err?.response?.data?.message||'Could not remove user')}finally{setConfirmDelete(null)}}
   return <div className="grid">
     <div className="toolbar">
       <h2 style={{margin:0}}>Team</h2>
-      {isAdmin && <Button startIcon={<Add/>} variant="contained" onClick={()=>setOpen(true)}>Add User</Button>}
+      {isAdmin && <Button startIcon={<Add/>} variant="contained" onClick={()=>{setEditing(null);setOpen(true)}}>Add User</Button>}
     </div>
-    <div className="card table-wrap"><table className="table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Phone</th></tr></thead><tbody>
+    <div className="card table-wrap"><table className="table"><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Phone</th>{isAdmin && <th>Actions</th>}</tr></thead><tbody>
       {users.map(u=><tr key={u.id}>
         <td data-label="Name"><b>{u.fullName}</b></td>
         <td data-label="Email">{u.email}</td>
         <td data-label="Role">{roleNames[u.role]||'User'}</td>
         <td data-label="Phone">{u.phone||'-'}</td>
+        {isAdmin && <td data-label="Actions"><IconButton size="small" onClick={()=>{setEditing(u);setOpen(true)}} title="Edit"><Edit fontSize="small"/></IconButton><IconButton size="small" onClick={()=>setConfirmDelete(u)} title="Remove" disabled={u.id===currentUser?.id}><Delete fontSize="small" color="error"/></IconButton></td>}
       </tr>)}
-      {users.length===0 && <tr><td colSpan="4"><p className="muted">No team members found.</p></td></tr>}
+      {users.length===0 && <tr><td colSpan={isAdmin?5:4}><p className="muted">No team members found.</p></td></tr>}
     </tbody></table></div>
-    {!isAdmin && <p className="muted">Only admins can add new team members.</p>}
-    <AddUserDialog open={open} onClose={()=>setOpen(false)} onSaved={()=>{setToast('User created');setOpen(false);load()}}/>
+    {!isAdmin && <p className="muted">Only admins can manage team members.</p>}
+    <AddUserDialog open={open} user={editing} onClose={()=>setOpen(false)} onSaved={()=>{setToast(editing?'User updated':'User created');setOpen(false);load()}}/>
+    <Dialog open={!!confirmDelete} onClose={()=>setConfirmDelete(null)}><DialogTitle>Remove {confirmDelete?.fullName}?</DialogTitle><DialogContent><Typography className="muted">They'll lose access immediately. Their past expenses and history are kept.</Typography></DialogContent><DialogActions><Button onClick={()=>setConfirmDelete(null)}>Cancel</Button><Button color="error" variant="contained" onClick={()=>remove(confirmDelete)}>Remove</Button></DialogActions></Dialog>
   </div>
 }
 
-function AddUserDialog({open,onClose,onSaved}){
+function AddUserDialog({open,user,onClose,onSaved}){
   const blank={fullName:'',email:'',password:'',role:2,phone:''};
   const [form,setForm]=useState(blank); const [error,setError]=useState('');
-  useEffect(()=>{if(open){setForm(blank);setError('')}},[open]);
+  useEffect(()=>{if(open){setForm(user?{fullName:user.fullName,email:user.email,password:'',role:user.role,phone:user.phone||''}:blank);setError('')}},[open,user]);
   function patch(e){setForm({...form,[e.target.name]:e.target.value})}
   async function save(){
     if(!form.fullName.trim()){setError('Full name is required.');return}
-    if(!form.email.trim()){setError('Email is required.');return}
-    if(!form.password || form.password.length<6){setError('Password must be at least 6 characters.');return}
-    try{ await api.post('/auth/users',{fullName:form.fullName,email:form.email,password:form.password,role:Number(form.role),phone:form.phone||null}); onSaved(); }
-    catch(err){ setError(err?.response?.data?.message || 'Could not create user. Email may already be in use.'); }
+    if(!user && !form.email.trim()){setError('Email is required.');return}
+    if(!user && (!form.password || form.password.length<6)){setError('Password must be at least 6 characters.');return}
+    try{
+      if(user) await api.put(`/auth/users/${user.id}`,{fullName:form.fullName,role:Number(form.role),phone:form.phone||null});
+      else await api.post('/auth/users',{fullName:form.fullName,email:form.email,password:form.password,role:Number(form.role),phone:form.phone||null});
+      onSaved();
+    }
+    catch(err){ setError(err?.response?.data?.message || 'Could not save user. Email may already be in use.'); }
   }
   return <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-    <DialogTitle>Add User</DialogTitle>
+    <DialogTitle>{user?'Edit User':'Add User'}</DialogTitle>
     <DialogContent>
       {error && <Alert severity="error" sx={{mb:2}}>{error}</Alert>}
       <div className="form-grid">
         <input className="input" name="fullName" placeholder="Full name" value={form.fullName} onChange={patch}/>
-        <input className="input" name="email" type="email" placeholder="Email" value={form.email} onChange={patch}/>
-        <input className="input" name="password" type="password" placeholder="Password (min 6 chars)" value={form.password} onChange={patch}/>
+        <input className="input" name="email" type="email" placeholder="Email" value={form.email} onChange={patch} disabled={!!user}/>
+        {!user && <input className="input" name="password" type="password" placeholder="Password (min 6 chars)" value={form.password} onChange={patch}/>}
         <select className="input" name="role" value={form.role} onChange={patch}>
           <option value={0}>Admin</option>
           <option value={1}>Manager</option>
@@ -253,8 +261,9 @@ function AddUserDialog({open,onClose,onSaved}){
         </select>
         <input className="input" name="phone" placeholder="Phone (optional)" value={form.phone} onChange={patch}/>
       </div>
+      {user && <Typography variant="body2" className="muted" sx={{mt:1}}>Email can't be changed here.</Typography>}
     </DialogContent>
-    <DialogActions><Button onClick={onClose}>Cancel</Button><Button variant="contained" onClick={save}>Create User</Button></DialogActions>
+    <DialogActions><Button onClick={onClose}>Cancel</Button><Button variant="contained" onClick={save}>{user?'Save Changes':'Create User'}</Button></DialogActions>
   </Dialog>
 }
 function ModulePage({name}){return <div className="card"><div className="toolbar"><h2 style={{margin:0,textTransform:'capitalize'}}>{name}</h2><Button variant="contained" startIcon={<Add/>}>New</Button></div><p className="muted">REST API and database model are ready for this module. Connect table/form fields to the matching endpoint as workflows mature.</p></div>}

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using ClosedXML.Excel;
 using FarmManagement.Api.Data;
 using FarmManagement.Api.Domain;
@@ -20,6 +21,33 @@ public sealed class AuthController : ControllerBase
     [HttpPost("login")] [AllowAnonymous] public Task<AuthResponse> Login(LoginRequest request, CancellationToken ct) => _auth.LoginAsync(request, ct);
     [HttpPost("users")] [Authorize(Roles = "Admin")] public Task<UserDto> CreateUser(CreateUserRequest request, CancellationToken ct) => _auth.CreateUserAsync(request, ct);
     [HttpGet("users")] [Authorize] public async Task<ActionResult<IEnumerable<UserDto>>> GetUsers(CancellationToken ct) => Ok((await _db.Users.Where(u => u.IsActive).OrderBy(u => u.FullName).ToListAsync(ct)).Select(EntityMapper.ToDto));
+
+    [HttpPut("users/{id:guid}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<ActionResult<UserDto>> UpdateUser(Guid id, UpdateUserRequest request, CancellationToken ct)
+    {
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (user is null) return NotFound();
+        user.FullName = request.FullName;
+        user.Role = request.Role;
+        user.Phone = request.Phone;
+        await _db.SaveChangesAsync(ct);
+        return Ok(EntityMapper.ToDto(user));
+    }
+
+    [HttpDelete("users/{id:guid}")]
+    [Authorize(Roles = "Admin")]
+    public async Task<IActionResult> DeactivateUser(Guid id, CancellationToken ct)
+    {
+        var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (Guid.TryParse(currentUserId, out var selfId) && selfId == id) return BadRequest(new { message = "You can't remove your own account." });
+        var user = await _db.Users.FirstOrDefaultAsync(x => x.Id == id, ct);
+        if (user is null) return NotFound();
+        user.IsActive = false;
+        await _db.SaveChangesAsync(ct);
+        return NoContent();
+    }
+
     [HttpPost("logout")] [Authorize] public IActionResult Logout() => NoContent();
     [HttpPost("forgot-password")] [AllowAnonymous] public IActionResult ForgotPassword(ForgotPasswordRequest request) => Ok(new { message = "If the email exists, a reset link will be sent by the configured email provider." });
     [HttpPost("change-password")] [Authorize] public IActionResult ChangePassword(ChangePasswordRequest request) => Ok(new { message = "Password change endpoint scaffolded. Add email/OTP policy before production." });
