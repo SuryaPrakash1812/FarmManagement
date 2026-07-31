@@ -115,18 +115,20 @@ function ExpensesPage({setToast}){
 
 function ExpenseDialog({open,expense,users,onClose,onSaved}){
   const blank={category:'Feed',amount:0,paymentMethod:'Cash',date:new Date().toISOString().slice(0,10),notes:'',paidByUserId:'',isRecurring:false,recurrenceInterval:'Monthly'};
-  const [form,setForm]=useState(blank); const [splitAmong,setSplitAmong]=useState([]);
-  useEffect(()=>{ if(open){ if(expense){ setForm({category:expense.category,amount:expense.amount,paymentMethod:expense.paymentMethod,date:expense.date,notes:expense.notes||'',paidByUserId:expense.paidByUserId||'',isRecurring:expense.isRecurring,recurrenceInterval:expense.recurrenceInterval||'Monthly'}); setSplitAmong((expense.splits||[]).map(s=>s.userId)); } else { setForm(blank); setSplitAmong([]); } } },[open,expense]);
+  const [form,setForm]=useState(blank); const [splitAmong,setSplitAmong]=useState([]); const [error,setError]=useState('');
+  useEffect(()=>{ if(open){ setError(''); if(expense){ setForm({category:expense.category,amount:expense.amount,paymentMethod:expense.paymentMethod,date:expense.date,notes:expense.notes||'',paidByUserId:expense.paidByUserId||'',isRecurring:expense.isRecurring,recurrenceInterval:expense.recurrenceInterval||'Monthly'}); setSplitAmong((expense.splits||[]).map(s=>s.userId)); } else { setForm(blank); setSplitAmong([]); } } },[open,expense]);
   function patch(e){const {name,value,type,checked}=e.target; setForm({...form,[name]:type==='checkbox'?checked:value})}
   function toggleSplit(id){setSplitAmong(splitAmong.includes(id)?splitAmong.filter(x=>x!==id):[...splitAmong,id])}
   async function save(){
+    setError('');
     const payload={category:form.category,amount:Number(form.amount),paymentMethod:form.paymentMethod,date:form.date,notes:form.notes||null,paidByUserId:form.paidByUserId||null,isRecurring:!!form.isRecurring,recurrenceInterval:form.isRecurring?form.recurrenceInterval:null,splitAmongUserIds:splitAmong.length?splitAmong:null};
-    try{ if(expense) await api.put(`/expenses/${expense.id}`,payload); else await api.post('/expenses',payload); }catch{}
-    onSaved();
+    try{ if(expense) await api.put(`/expenses/${expense.id}`,payload); else await api.post('/expenses',payload); onSaved(); }
+    catch(err){ setError(err?.response?.data?.title || err?.response?.data?.message || `Could not save (status ${err?.response?.status||'unknown'}). Check the fields and try again.`); }
   }
   return <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
     <DialogTitle>{expense?'Edit Expense':'Add Expense'}</DialogTitle>
     <DialogContent>
+      {error && <Alert severity="error" sx={{mb:2}}>{error}</Alert>}
       <div className="form-grid">
         <select className="input" name="category" value={form.category} onChange={patch}>{expenseCategories.map(c=><option key={c} value={c}>{c}</option>)}</select>
         <input className="input" name="amount" type="number" placeholder="Amount" value={form.amount} onChange={patch}/>
